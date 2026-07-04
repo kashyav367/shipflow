@@ -24,7 +24,7 @@ export const generateTasksFromPrd = inngest.createFunction(
     // 2. Call AI to generate structured task objects
     const tasksData = await step.run("generate-tasks-with-ai", async () => {
       const response = await generateObject({
-        model: openrouter("google/gemini-2.0-flash-001"),
+        model: openrouter("google/gemini-2.5-flash", { maxTokens: 2000 }),
         schema: z.object({
           tasks: z.array(z.object({
             title: z.string().describe("Short action-oriented task title"),

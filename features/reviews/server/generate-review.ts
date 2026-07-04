@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import { openrouter } from "@/features/ai"
 
-const REVIEW_MODEL = "google/gemini-2.0-flash-001"
+const REVIEW_MODEL = "google/gemini-2.5-flash"
 
 const SYSTEM_PROMPT = `You are an expert code reviewer and QA engineer.
 Your job is to evaluate if the provided code changes actually satisfy the Product Requirements Document (PRD).
@@ -53,7 +53,7 @@ export async function generateReview(input: ReviewInput) {
       : "";
 
     const { text } = await generateText({
-        model: openrouter(REVIEW_MODEL),
+        model: openrouter(REVIEW_MODEL, { maxTokens: 2000 }),
         system: SYSTEM_PROMPT,
         prompt: `Repository: ${input.repoFullName}
   Pull Request Title: ${input.title}
