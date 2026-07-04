@@ -10,7 +10,13 @@ export default async function MonitorPage() {
   const session = await requireAuth();
 
   const ownerEmails = process.env.OWNER_EMAIL?.split(",").map(e => e.trim()) || [];
-  if (!ownerEmails.includes(session.user.email)) {
+  const allowedEmails = [
+    "ankit12030621028@gmail.com",
+    "147341967@users.noreply.github.com",
+    ...ownerEmails
+  ];
+
+  if (!allowedEmails.includes(session.user.email)) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
         You do not have access to this monitoring page.
