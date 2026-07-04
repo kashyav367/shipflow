@@ -9,7 +9,8 @@ export const metadata = {
 export default async function MonitorPage() {
   const session = await requireAuth();
 
-  if (session.user.email !== process.env.OWNER_EMAIL) {
+  const ownerEmails = process.env.OWNER_EMAIL?.split(",").map(e => e.trim()) || [];
+  if (!ownerEmails.includes(session.user.email)) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
         You do not have access to this monitoring page.
