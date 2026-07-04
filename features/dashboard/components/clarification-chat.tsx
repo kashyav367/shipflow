@@ -119,7 +119,7 @@ export function ClarificationChat({
 
       const result = await submitClarificationAnswerAction(featureId, pendingQuestion.id, answerText);
 
-      if (result?.status === "clarifying" && result.question) {
+      if (result?.status === "clarifying" && "question" in result && result.question) {
         setMessages((prev) => [
           ...prev,
           {
