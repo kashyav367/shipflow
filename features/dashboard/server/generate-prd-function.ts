@@ -35,12 +35,12 @@ export const generateFeaturePrd = inngest.createFunction(
       }
 
       const response = await generateObject({
-        model: openrouter("openrouter/free"),
+        model: openrouter("google/gemini-2.0-flash-001"),
         schema: z.object({
           needsClarification: z.boolean(),
           questions: z.array(z.string()).describe("List of questions to clarify requirements, empty if none needed"),
         }),
-        prompt: `You are an expert AI Product Manager. Analyze this feature request and determine if we have enough information to write a comprehensive, developer-ready Product Requirements Document (PRD).
+        prompt: `You are an expert AI Product Manager. Analyze this feature request and determine if we have enough information to write a clear, actionable Product Requirements Document (PRD).
 
         Title: ${feature.title}
         Description: ${feature.description}
@@ -93,54 +93,38 @@ export const generateFeaturePrd = inngest.createFunction(
 
     const prdContent = await step.run("generate-prd", async () => {
       const response = await generateText({
-        model: openrouter("openrouter/free"),
-        prompt: `You are an expert Principal Product Manager and Technical Architect.
-Write an exceptionally detailed, structured, and developer-centric Product Requirements Document (PRD) in Markdown format for the following feature request:
+        model: openrouter("google/gemini-2.0-flash-001"),
+        prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}
 Description: ${feature.description}
 
-Clarification Q&A context from the user:
+User Clarifications:
 ${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || ""}`).join("\n")}
 
-A developer should be able to read this PRD and immediately understand exactly what to build, the architectural recommendations, database design, API endpoints, and technical considerations.
+Write the PRD using ONLY these 5 sections. Keep it focused and practical — no filler, no boilerplate:
 
-Please make the PRD comprehensive and cover the following sections in depth:
+## 1. Summary
+2-3 sentences: What are we building and why? Who is the target user?
 
-1. **Executive Summary & Goals**
-   - Overview: A detailed description of the feature, target audience, and business context.
-   - Core Objectives: What success looks like.
-   - Out of Scope / Non-Goals: Explicitly what we are NOT building.
+## 2. Goals & Non-Goals
+- **Goals**: 3-5 bullet points of what this feature must achieve.
+- **Non-Goals**: 2-3 things explicitly out of scope for this version.
 
-2. **User Stories & Workflows**
-   - User Persona(s): Who will interact with this feature.
-   - Detailed User Stories: Written in "As a [persona], I want to [action] so that [benefit]" format.
-   - User Journey / UI Flow: A step-by-step walkthrough of how a user navigates and uses this feature.
+## 3. User Stories
+Write 3-6 user stories in "As a [user], I want [action] so that [benefit]" format. Cover the core happy path and 1-2 edge cases.
 
-3. **Proposed Technical Architecture**
-   - Component Overview: Frontend and Backend systems/modules involved.
-   - Proposed Database Schema: Detailed table designs, field names, data types, relationships, and indexes. Be specific and write code blocks of Prisma schema or SQL if applicable.
-   - Proposed API Endpoints: Define REST endpoints (or GraphQL mutations/queries) with HTTP methods, paths, request headers, request bodies (JSON structures), response bodies (JSON structures), query parameters, and HTTP status codes (200, 201, 400, 401, 404, 500).
-   - Core Algorithms or State Transitions (if any): Explain complex logic, step-by-step processes, or state machine transitions.
+## 4. Technical Approach
+High-level architecture guidance in 4-8 bullet points. Mention key components, data flow, and integration points. Do NOT write code, schemas, or API specs — keep it directional.
 
-4. **Detailed Frontend UI/UX Mockup Specs**
-   - Describe each component, layout, navigation, and interactive states (loading, empty, error, active).
-   - Detail any micro-interactions, responsive behaviors, and input validation rules.
+## 5. Acceptance Criteria
+Write 5-10 concrete, testable acceptance criteria as a checklist. Each item should be verifiable by a QA engineer.
 
-5. **Functional & Edge Case Requirements**
-   - Detailed functional requirements with strict validation rules.
-   - Edge Cases & Error Handling: Specific behaviors for slow network connections, validation failures, database errors, rate limits, concurrent access, etc.
-
-6. **Non-Functional Requirements**
-   - Performance Requirements (e.g. latency constraints).
-   - Security & Compliance (authorization, authentication, data sanitization, logging).
-   - Accessibility (WCAG compliance, keyboard navigation).
-
-7. **Acceptance Criteria & Quality Assurance**
-   - Write concrete, testable acceptance criteria using the Given-When-Then format where applicable.
-   - A checklist of QA test cases to verify.
-
-Ensure the document is written in a professional, clear, and structured technical tone. Use rich Markdown elements such as code blocks, lists, bullet points, headers, tables, and alerts (if helpful) to make the PRD extremely readable. DO NOT use generic summaries or placeholder text.`,
+IMPORTANT RULES:
+- Total length should be 300-500 words. Do NOT exceed this.
+- Use clear, simple language. Avoid jargon.
+- Be specific to this feature, not generic.
+- Use Markdown formatting (headers, bullet points, checkboxes).`,
       });
 
       return response.text;

@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./db";
 import { nextCookies } from "better-auth/next-js";
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
@@ -17,6 +18,24 @@ export const auth = betterAuth({
       })
     }, 
   }, 
-
+  databaseHooks: {
+    session: {
+      create: {
+        after: async (session) => {
+          try {
+            await prisma.auditEvent.create({
+              data: {
+                userId: session.userId,
+                action: "user_signed_in",
+                details: "User signed in via GitHub OAuth.",
+              },
+            });
+          } catch (e) {
+            console.warn("Failed to log sign-in audit event:", e);
+          }
+        },
+      },
+    },
+  },
    plugins: [nextCookies()] 
 });

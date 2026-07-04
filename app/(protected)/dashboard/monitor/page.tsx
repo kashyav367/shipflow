@@ -18,22 +18,26 @@ export default async function MonitorPage() {
   }
 
   const events = await prisma.auditEvent.findMany({
-    where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
-    take: 100,
+    take: 200,
+    include: {
+      user: {
+        select: { name: true, email: true, image: true },
+      },
+    },
   });
 
   return (
     <>
       <DashboardHeader
         title="Monitor"
-        description="Your personal activity log and account usage overview."
+        description="Track all user activity — logins, feature requests, PRD approvals, and more."
       />
       <div className="p-6 space-y-4">
         <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold">Recent activity</h2>
+          <h2 className="text-sm font-semibold">All User Activity</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            This view shows your own sign-ins and important actions taken within the app.
+            This view shows sign-ins, feature creation, PRD approvals, and all important actions taken by every user.
           </p>
         </div>
 
@@ -46,11 +50,31 @@ export default async function MonitorPage() {
             events.map((event) => (
               <div key={event.id} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium">{event.action}</p>
-                    {event.details ? <p className="text-xs text-muted-foreground">{event.details}</p> : null}
+                  <div className="flex items-center gap-3 min-w-0">
+                    {event.user?.image ? (
+                      <img
+                        src={event.user.image}
+                        alt=""
+                        className="size-8 rounded-full border border-border shrink-0"
+                      />
+                    ) : (
+                      <div className="size-8 rounded-full bg-muted border border-border flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                        {event.user?.name?.[0]?.toUpperCase() ?? "?"}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {event.action.replace(/_/g, " ")}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {event.user?.name ?? "Unknown"} · {event.user?.email ?? ""}
+                      </p>
+                      {event.details ? (
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{event.details}</p>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="text-right text-xs text-muted-foreground">
+                  <div className="text-right text-xs text-muted-foreground shrink-0">
                     <p>{new Date(event.createdAt).toLocaleString()}</p>
                     {event.ipAddress ? <p>{event.ipAddress}</p> : null}
                   </div>

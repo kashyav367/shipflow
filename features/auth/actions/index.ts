@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { DEFAULT_AUTH_CALLBACK, getSafeCallbackPath, SIGN_IN_PATH } from "../utils";
-import { logAuditEvent } from "@/features/monitoring/lib/audit";
 
 export async function signInWithGithub(formData: FormData) {
   const callback = formData.get("callbackUrl");
@@ -38,12 +37,6 @@ export async function requireAuth(redirectTo = SIGN_IN_PATH) {
   if (!session) {
     redirect(redirectTo);
   }
-
-  await logAuditEvent({
-    userId: session.user.id,
-    action: "authenticated_access",
-    details: "Authenticated session verified for protected dashboard access.",
-  });
 
   return session;
 }

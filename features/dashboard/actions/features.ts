@@ -58,17 +58,34 @@ async function processFeatureRequestFlow(featureRequestId: string) {
     });
 
     const prdContent = await generateText({
-      model: openrouter("openrouter/free"),
-      prompt: `You are an expert Principal Product Manager and Technical Architect.
-Write a detailed, structured Product Requirements Document (PRD) in Markdown format for the following feature request:
+      model: openrouter("google/gemini-2.0-flash-001"),
+      prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}
 Description: ${feature.description}
 
-Clarification Q&A context from the user:
+User Clarifications:
 ${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || ""}`).join("\n")}
 
-Create a concise but useful PRD with executive summary, goals, user stories, technical architecture, API considerations, edge cases, and acceptance criteria.`,
+Write the PRD using ONLY these 5 sections. Keep it focused and practical — no filler, no boilerplate:
+
+## 1. Summary
+2-3 sentences: What are we building and why? Who is the target user?
+
+## 2. Goals & Non-Goals
+- **Goals**: 3-5 bullet points of what this feature must achieve.
+- **Non-Goals**: 2-3 things explicitly out of scope for this version.
+
+## 3. User Stories
+Write 3-6 user stories in "As a [user], I want [action] so that [benefit]" format.
+
+## 4. Technical Approach
+High-level architecture guidance in 4-8 bullet points. Mention key components, data flow, and integration points. Do NOT write code or schemas.
+
+## 5. Acceptance Criteria
+Write 5-10 concrete, testable acceptance criteria as a checklist.
+
+IMPORTANT: Keep total length 300-500 words. Be specific, not generic.`,
     });
 
     await prisma.prd.upsert({
@@ -86,7 +103,7 @@ Create a concise but useful PRD with executive summary, goals, user stories, tec
   }
 
   const response = await generateObject({
-    model: openrouter("openrouter/free"),
+    model: openrouter("google/gemini-2.0-flash-001"),
     schema: z.object({
       needsClarification: z.boolean(),
       questions: z.array(z.string()).describe("List of questions to clarify requirements, empty if none needed"),
@@ -140,17 +157,34 @@ Return needsClarification=true with exactly 1 question if more detail is require
   });
 
   const prdContent = await generateText({
-    model: openrouter("openrouter/free"),
-    prompt: `You are an expert Principal Product Manager and Technical Architect.
-Write a detailed, structured Product Requirements Document (PRD) in Markdown format for the following feature request:
+    model: openrouter("google/gemini-2.0-flash-001"),
+    prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}
 Description: ${feature.description}
 
-Clarification Q&A context from the user:
+User Clarifications:
 ${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || ""}`).join("\n")}
 
-Create a concise but useful PRD with executive summary, goals, user stories, technical architecture, API considerations, edge cases, and acceptance criteria.`,
+Write the PRD using ONLY these 5 sections. Keep it focused and practical — no filler, no boilerplate:
+
+## 1. Summary
+2-3 sentences: What are we building and why? Who is the target user?
+
+## 2. Goals & Non-Goals
+- **Goals**: 3-5 bullet points of what this feature must achieve.
+- **Non-Goals**: 2-3 things explicitly out of scope for this version.
+
+## 3. User Stories
+Write 3-6 user stories in "As a [user], I want [action] so that [benefit]" format.
+
+## 4. Technical Approach
+High-level architecture guidance in 4-8 bullet points. Mention key components, data flow, and integration points. Do NOT write code or schemas.
+
+## 5. Acceptance Criteria
+Write 5-10 concrete, testable acceptance criteria as a checklist.
+
+IMPORTANT: Keep total length 300-500 words. Be specific, not generic.`,
   });
 
   await prisma.prd.upsert({
