@@ -1,0 +1,261 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Test {
+  id    String @id @default(cuid())
+  title String
+}
+
+model User {
+  id                     String              @id
+  name                   String
+  email                  String
+  emailVerified          Boolean             @default(false)
+  image                  String?
+  plan                   String              @default("free") // free | pro
+  razorpaySubscriptionId String?
+  subscriptionStatus     String? // active | canceled | trialing
+  subscriptionRenewsAt   DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  sessions               Session[]
+  accounts               Account[]
+  githubInstallation     GithubInstallation?
+  ownedWorkspaces        Workspace[]         @relation("OwnedWorkspaces")
+  workspaceMembers       WorkspaceMember[]
+  auditEvents            AuditEvent[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model GithubInstallation {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installationId Int // GitHub's numeric installation id — passed to app.getInstallationOctokit()
+  accountLogin   String?
+  accountType    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("github_installation")
+}
+
+model PullRequest {
+  id             String    @id @default(cuid())
+  installationId Int
+  repoFullName   String // e.g. "owner/repo"
+  prNumber       Int
+  title          String
+  authorLogin    String?
+  headSha        String // latest commit on the PR branch
+  baseBranch     String
+  status         String    @default("pending") // pending | processing | reviewed | rate_limited
+  reviewComment  String? // AI-generated markdown saved after review completes
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([repoFullName, prNumber])
+  @@map("pull_request")
+}
+
+model RepoSync {
+  id             String    @id @default(cuid())
+  installationId Int
+  repoFullName   String
+  branch         String
+  status         String    @default("pending") // pending | syncing | synced | failed
+  chunkCount     Int       @default(0)
+  syncedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([repoFullName])
+  @@map("repo_sync")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  details    String?
+  targetType String?
+  targetId   String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("audit_event")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Workspace {
+  id        String            @id @default(cuid())
+  name      String
+  slug      String            @unique
+  ownerId   String
+  owner     User              @relation("OwnedWorkspaces", fields: [ownerId], references: [id])
+  members   WorkspaceMember[]
+  projects  Project[]
+  features  FeatureRequest[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@map("workspace")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String    @default("member") // owner | admin | member
+  createdAt   DateTime  @default(now())
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_member")
+}
+
+model Project {
+  id           String           @id @default(cuid())
+  name         String
+  description  String?
+  workspaceId  String
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  repoFullName String?          // Connected GitHub repository (e.g., "owner/repo")
+  features     FeatureRequest[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("project")
+}
+
+model FeatureRequest {
+  id             String                  @id @default(cuid())
+  title          String
+  description    String
+  status         String                  @default("draft") // draft | clarifying | prd_ready | planning | development | review | ready_to_ship | shipped
+  workspaceId    String
+  workspace      Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?                @relation(fields: [projectId], references: [id])
+  prd            Prd?
+  tasks          Task[]
+  clarifications ClarificationQuestion[]
+  pullRequests   FeaturePullRequest[]
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@map("feature_request")
+}
+
+model ClarificationQuestion {
+  id               String         @id @default(cuid())
+  featureRequestId String
+  featureRequest   FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  question         String
+  answer           String?        // User reply to clarify details
+  createdAt        DateTime       @default(now())
+
+  @@map("clarification_question")
+}
+
+model Prd {
+  id               String         @id @default(cuid())
+  featureRequestId String         @unique
+  featureRequest   FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  content          String         // Markdown generated by AI
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("prd")
+}
+
+model Task {
+  id               String         @id @default(cuid())
+  featureRequestId String
+  featureRequest   FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  title            String
+  description      String
+  status           String         @default("todo") // todo | in_progress | review | done
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("task")
+}
+
+model FeaturePullRequest {
+  id               String         @id @default(cuid())
+  featureRequestId String
+  featureRequest   FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  repoFullName     String
+  prNumber         Int
+  createdAt        DateTime       @default(now())
+
+  @@unique([featureRequestId, repoFullName, prNumber])
+  @@map("feature_pull_request")
+}
+
