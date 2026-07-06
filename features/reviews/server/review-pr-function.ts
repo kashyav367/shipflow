@@ -12,6 +12,10 @@ export const reviewPullRequest = inngest.createFunction(
   async ({ event, step }) => {
     const pullRequestId = event.data.pullRequestId;
 
+    if (!pullRequestId) {
+      throw new Error("Missing 'pullRequestId' in event data payload.");
+    }
+
     const pullRequest = await step.run("mark-processing", async () => {
       return prisma.pullRequest.update({
         where: { id: pullRequestId },

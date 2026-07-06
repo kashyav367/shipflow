@@ -12,6 +12,10 @@ export const generateTasksFromPrd = inngest.createFunction(
   async ({ event, step }) => {
     const { featureRequestId } = event.data;
 
+    if (!featureRequestId) {
+      throw new Error("Missing 'featureRequestId' in event data payload.");
+    }
+
     // 1. Get the PRD content
     const prd = await step.run("get-prd", async () => {
       return prisma.prd.findUnique({

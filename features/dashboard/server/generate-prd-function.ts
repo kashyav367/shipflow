@@ -15,6 +15,10 @@ export const generateFeaturePrd = inngest.createFunction(
   async ({ event, step }) => {
     const { featureRequestId } = event.data;
 
+    if (!featureRequestId) {
+      throw new Error("Missing 'featureRequestId' in event data payload.");
+    }
+
     // Fetch the feature request and any existing clarifications
     const feature = await step.run("get-feature", async () => {
       return prisma.featureRequest.findUnique({
