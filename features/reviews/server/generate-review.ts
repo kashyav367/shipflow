@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import { openrouter } from "@/features/ai"
 
-const REVIEW_MODEL = "google/gemini-2.5-flash"
+const REVIEW_MODEL = "openrouter/free"       
 
 const SYSTEM_PROMPT = `You are an expert code reviewer and QA engineer.
 Your job is to evaluate if the provided code changes actually satisfy the Product Requirements Document (PRD).

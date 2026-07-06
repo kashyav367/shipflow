@@ -58,7 +58,7 @@ async function processFeatureRequestFlow(featureRequestId: string) {
     });
 
     const prdContent = await generateText({
-      model: openrouter("google/gemini-2.5-flash", { maxTokens: 3000 }),
+      model: openrouter("openrouter/free", { maxTokens: 3000 }),
       prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}
@@ -103,7 +103,7 @@ IMPORTANT: Keep total length 300-500 words. Be specific, not generic.`,
   }
 
   const response = await generateObject({
-    model: openrouter("google/gemini-2.5-flash", { maxTokens: 1000 }),
+    model: openrouter("openrouter/free", { maxTokens: 1000 }),
     schema: z.object({
       needsClarification: z.boolean(),
       questions: z.array(z.string()).describe("List of questions to clarify requirements, empty if none needed"),
@@ -157,7 +157,7 @@ Return needsClarification=true with exactly 1 question if more detail is require
   });
 
   const prdContent = await generateText({
-    model: openrouter("google/gemini-2.5-flash", { maxTokens: 3000 }),
+    model: openrouter("openrouter/free", { maxTokens: 3000 }),
     prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}

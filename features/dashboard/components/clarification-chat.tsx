@@ -66,13 +66,13 @@ export function ClarificationChat({
         const feature = await getFeatureClarificationState(featureId);
         if (feature) {
           setStatus(feature.status);
-          
+
           // Cast clarifications safely
           const updatedClarifications = feature.clarifications.map((c) => ({
             ...c,
             createdAt: new Date(c.createdAt),
           }));
-          
+
           // Check if clarifications list has changed (e.g. new questions generated) or status updated
           const hasNewQuestions = updatedClarifications.length > messages.length;
           const hasNewAnswers = updatedClarifications.some(
@@ -82,7 +82,7 @@ export function ClarificationChat({
           if (hasNewQuestions || hasNewAnswers || feature.status !== "clarifying") {
             setMessages(updatedClarifications);
             setIsAiTyping(false);
-            
+
             // If PRD is generating or ready, redirect to PRD page
             if (feature.status === "prd_generating" || feature.status === "prd_ready" || feature.status === "planning") {
               toast.success("All questions answered! Redirecting to PRD...");
@@ -158,7 +158,7 @@ export function ClarificationChat({
     <div className="max-w-5xl mx-auto mt-6 p-4">
       {/* Immersive ChatGPT-style chat workspace */}
       <Card className="border border-border/80 bg-card/60 backdrop-blur-md shadow-2xl rounded-2xl overflow-hidden flex flex-col h-[750px]">
-        
+
         {/* Sleek chat header */}
         <div className="flex items-center gap-4 p-5 border-b border-border/60 bg-muted/10">
           <div className="size-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
@@ -172,7 +172,7 @@ export function ClarificationChat({
               Defining: <span className="font-semibold text-primary">{featureTitle}</span>
             </p>
           </div>
-          
+
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
             <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
             <span className="text-[10px] text-emerald-500 font-semibold uppercase tracking-wider">
@@ -193,7 +193,7 @@ export function ClarificationChat({
             </div>
             <div className="bg-muted/40 text-xs text-foreground p-4 rounded-2xl rounded-tl-none border border-border/60 shadow-sm leading-relaxed">
               <p className="font-medium text-indigo-500 mb-1">ShipFlow AI Analyst</p>
-              Hello! I am analyzing your request: <strong>"{featureTitle}"</strong>. 
+              Hello! I am analyzing your request: <strong>"{featureTitle}"</strong>.
               To write a comprehensive, developer-ready Product Requirements Document (PRD), I have a few specific questions to clarify your goals and architecture constraints. Let's begin!
             </div>
           </div>
@@ -257,15 +257,14 @@ export function ClarificationChat({
                 disabled={isSubmitting}
                 className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none resize-none max-h-24 py-1 pr-12 min-h-[24px]"
               />
-              
+
               <Button
                 type="submit"
                 disabled={!input.trim() || isSubmitting}
-                className={`absolute right-3 bottom-2.5 size-8 rounded-xl p-0 flex items-center justify-center transition-all ${
-                  input.trim()
+                className={`absolute right-3 bottom-2.5 size-8 rounded-xl p-0 flex items-center justify-center transition-all ${input.trim()
                     ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/25"
                     : "bg-muted text-muted-foreground"
-                }`}
+                  }`}
               >
                 <PaperPlaneTilt size={16} weight="bold" />
               </Button>
@@ -278,9 +277,9 @@ export function ClarificationChat({
               <p className="text-[11px] text-muted-foreground">
                 ShipFlow AI is compile-drafting your technical Product Requirements Document (PRD).
               </p>
-              <Button 
-                onClick={() => router.push(`/dashboard/features/${featureId}/prd`)} 
-                variant="outline" 
+              <Button
+                onClick={() => router.push(`/dashboard/features/${featureId}/prd`)}
+                variant="outline"
                 size="sm"
                 className="mt-1 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10"
               >
