@@ -29,7 +29,7 @@ export const generateTasksFromPrd = inngest.createFunction(
     // 2. Call AI to generate structured task objects
     const tasksData = await step.run("generate-tasks-with-ai", async () => {
       const response = await generateObject({
-        model: openrouter("anthropic/claude-3-5-sonnet", { maxTokens: 1500 }),
+        model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 1500 }),
         schema: z.object({
           tasks: z.array(z.object({
             title: z.string().describe("Short action-oriented task title (5-10 words)"),

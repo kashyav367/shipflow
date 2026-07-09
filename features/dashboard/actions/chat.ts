@@ -64,7 +64,7 @@ export async function sendChatMessage(
 
   // Generate AI response
   const aiResult = await generateText({
-    model: openrouter("anthropic/claude-3-5-sonnet", { maxTokens: 2000 }),
+    model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 2000 }),
     prompt: `You are ShipFlow AI, a helpful Product Requirements assistant. You help users refine feature requests and create better PRDs.
 
 Feature Request:
