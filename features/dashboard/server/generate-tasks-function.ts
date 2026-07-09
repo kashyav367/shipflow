@@ -29,24 +29,26 @@ export const generateTasksFromPrd = inngest.createFunction(
     // 2. Call AI to generate structured task objects
     const tasksData = await step.run("generate-tasks-with-ai", async () => {
       const response = await generateObject({
-        model: openrouter("anthropic/claude-3-5-sonnet", { maxTokens: 2000 }),
+        model: openrouter("anthropic/claude-3-5-sonnet", { maxTokens: 1500 }),
         schema: z.object({
           tasks: z.array(z.object({
-            title: z.string().describe("Short action-oriented task title"),
-            description: z.string().describe("Clear technical instructions for developers"),
+            title: z.string().describe("Short action-oriented task title (5-10 words)"),
+            description: z.string().describe("Clear technical instructions for developers (2-3 sentences)"),
           })).describe("Granular technical developer tasks required to implement the PRD"),
         }),
-        prompt: `Analyze this Product Requirements Document (PRD) and break it down into highly granular, action-oriented engineering tasks for developers. 
-        Each task should have a clear title and a description containing technical instructions, step-by-step checklists, or files to modify where applicable.
-        Make sure to create separate tasks for:
-        1. Database migrations / schema updates (if any).
-        2. Backend API route implementation & validation (if any).
-        3. Frontend UI components & layout.
-        4. State management, integrations, & business logic.
-        5. Unit/Integration tests and edge-case verification.
+        prompt: `Analyze this PRD and break it down into 5-8 HIGHLY GRANULAR, action-oriented engineering tasks.
+        
+Keep descriptions BRIEF (2-3 sentences max). Focus on implementation details.
 
-        PRD Content:
-        ${prd.content}`
+Categories to cover:
+1. Backend API routes & validation
+2. Frontend UI components
+3. Database / data models (if needed)
+4. State management & integrations
+5. Testing & edge cases
+
+PRD:
+${prd.content}`,
       });
 
       return response.object.tasks;

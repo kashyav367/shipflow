@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,38 @@ export function KanbanBoard({
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [currentStatus, setCurrentStatus] = useState(featureStatus);
+
+  // Auto-refresh when tasks are being generated
+  useEffect(() => {
+    if (currentStatus !== "planning" && currentStatus !== "prd_generating") return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/features/${featureId}`, { cache: "no-store" });
+        const data = await response.json();
+        
+        if (data.status !== currentStatus) {
+          setCurrentStatus(data.status);
+          toast.success("Status updated!");
+        }
+
+        if (data.tasks && data.tasks.length > tasks.length) {
+          setTasks(data.tasks);
+          toast.success(`${data.tasks.length} tasks created!`);
+        }
+
+        if (data.status === "development" || data.status === "ready_to_ship") {
+          router.refresh();
+          clearInterval(pollInterval);
+        }
+      } catch (error) {
+        console.error("Polling error:", error);
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [currentStatus, featureId, tasks.length, router]);
 
   const handleStatusChange = async (taskId: string, newStatus: "todo" | "in_progress" | "review" | "done") => {
     setUpdatingTaskId(taskId);
