@@ -139,11 +139,7 @@ export function ClarificationChat({
       }
 
       setStatus(result?.status ?? status);
-
-      // If status is prd_generating, keep typing indicator on — poller will turn it off
-      if (result?.status !== "prd_generating") {
-        setIsAiTyping(false);
-      }
+      setIsAiTyping(false);
     } catch (error: any) {
       toast.error(error.message || "Failed to submit answer.");
       setIsAiTyping(false);
