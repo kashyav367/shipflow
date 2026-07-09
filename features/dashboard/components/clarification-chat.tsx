@@ -106,6 +106,8 @@ export function ClarificationChat({
     const answerText = input.trim();
     setInput("");
     setIsSubmitting(true);
+    // Start the typing indicator immediately so user sees feedback
+    setIsAiTyping(true);
 
     try {
       // Optimistically append the answer in UI
@@ -114,8 +116,6 @@ export function ClarificationChat({
           c.id === pendingQuestion.id ? { ...c, answer: answerText } : c
         )
       );
-
-      setIsAiTyping(true);
 
       const result = await submitClarificationAnswerAction(featureId, pendingQuestion.id, answerText);
 
@@ -127,22 +127,29 @@ export function ClarificationChat({
             createdAt: new Date(result.question.createdAt),
           },
         ]);
+        setIsAiTyping(false);
       }
 
       if (result?.status === "prd_ready") {
         setStatus("prd_ready");
+        setIsAiTyping(false);
         toast.success("Requirements are ready. Opening the PRD...");
         router.push(`/dashboard/features/${featureId}/prd`);
         return;
       }
 
       setStatus(result?.status ?? status);
+
+      // If status is prd_generating, keep typing indicator on — poller will turn it off
+      if (result?.status !== "prd_generating") {
+        setIsAiTyping(false);
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to submit answer.");
       setIsAiTyping(false);
     } finally {
       setIsSubmitting(false);
-      setIsAiTyping(false);
+      // NOTE: intentionally NOT clearing isAiTyping here — poller manages it
     }
   };
 
