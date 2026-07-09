@@ -206,6 +206,7 @@ model FeatureRequest {
   tasks          Task[]
   clarifications ClarificationQuestion[]
   pullRequests   FeaturePullRequest[]
+  chatMessages   ChatMessage[]
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
 
@@ -257,5 +258,17 @@ model FeaturePullRequest {
 
   @@unique([featureRequestId, repoFullName, prNumber])
   @@map("feature_pull_request")
+}
+
+model ChatMessage {
+  id               String         @id @default(cuid())
+  featureRequestId String
+  featureRequest   FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  role             String         // "user" | "assistant"
+  content          String
+  createdAt        DateTime       @default(now())
+
+  @@index([featureRequestId, createdAt])
+  @@map("chat_message")
 }
 
