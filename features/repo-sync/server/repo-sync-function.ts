@@ -14,7 +14,7 @@ export const syncRepoCodebaseFunction = inngest.createFunction({
     triggers: { event: "repo/sync.requested" },
     onFailure: async ({ event }) => {
         await prisma.repoSync.update({
-            where: { id: event.data.event.data.repoSyncId },
+            where: { id: event.data.repoSyncId },
             data: { status: "failed" },
         });
     }

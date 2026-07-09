@@ -13,9 +13,10 @@ export const generateFeaturePrd = inngest.createFunction(
     ] 
   },
   async ({ event, step }) => {
-    const { featureRequestId } = event.data;
+    const featureRequestId = event.data?.featureRequestId || event.data;
 
     if (!featureRequestId) {
+      console.error("Event data structure:", event.data);
       throw new Error("Missing 'featureRequestId' in event data payload.");
     }
 
