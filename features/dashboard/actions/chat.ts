@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/features/auth/actions";
 import { prisma } from "@/lib/db";
 import { generateText } from "ai";
 import { openrouter } from "@/features/ai";
@@ -63,7 +63,7 @@ export async function sendChatMessage(
     .join("\n\n");
 
   // Generate AI response
-  const aiResponse = await generateText({
+  const aiResult = await generateText({
     model: openrouter("anthropic/claude-3-5-sonnet", { maxTokens: 2000 }),
     prompt: `You are ShipFlow AI, a helpful Product Requirements assistant. You help users refine feature requests and create better PRDs.
 
@@ -81,6 +81,8 @@ User's latest message: ${userMessage}
 
 Respond helpfully to the user's message. Be concise, actionable, and focus on improving the feature requirements. If they ask about the PRD, provide specific suggestions. If they ask questions, answer based on the feature context.`,
   });
+
+  const aiResponse = aiResult.text;
 
   // Save AI response
   const savedMessage = await prisma.chatMessage.create({

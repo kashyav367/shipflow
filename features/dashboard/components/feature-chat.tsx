@@ -26,7 +26,12 @@ export function FeatureChat({ featureRequestId }: { featureRequestId: string }) 
     const fetchMessages = async () => {
       try {
         const msgs = await getChatMessages(featureRequestId);
-        setMessages(msgs);
+        setMessages(
+          msgs.map((msg) => ({
+            ...msg,
+            role: msg.role as "user" | "assistant",
+          }))
+        );
       } catch (error) {
         console.error("Failed to load chat messages:", error);
       } finally {

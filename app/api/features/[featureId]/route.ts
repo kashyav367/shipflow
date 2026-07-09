@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/features/auth/actions";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
