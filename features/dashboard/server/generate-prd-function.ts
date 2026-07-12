@@ -39,32 +39,39 @@ export const generateFeaturePrd = inngest.createFunction(
         return { needsClarification: false, questions: [] };
       }
 
-      const response = await generateObject({
-        model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 1000 }),
-        schema: z.object({
-          needsClarification: z.boolean(),
-          questions: z.array(z.string()).describe("List of questions to clarify requirements, empty if none needed"),
-        }),
+      const rawResponse = await generateText({
+        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
         prompt: `You are an expert AI Product Manager. Analyze this feature request and determine if we have enough information to write a clear, actionable Product Requirements Document (PRD).
 
         Title: ${feature.title}
         Description: ${feature.description}
 
         Clarification Q&A History:
-        ${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || "No response yet"}`).join("\n\n")}
+        ${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || "No response yet"}`).join("\n\n") || "(none yet)"}
 
-        Guidelines for clarification:
-        1. If this is the initial request and it is very brief (less than 2-3 sentences), we need more details. Set needsClarification to true and ask exactly 1 specific, high-impact question about the core flow, scope, or technical constraints.
-        2. If the user has answered the previous questions, analyze their response. Only ask a follow-up question if there is a critical technical ambiguity preventing you from writing DB or API specs.
-        3. Keep it turn-by-turn. ONLY ask at most 1 question in this turn.
-        4. Focus on deep engineering impact: What are the data models? What are the integration points? Are there strict validation limits?
+        Guidelines:
+        1. If this is the initial request and it is very brief, ask exactly 1 specific, high-impact question.
+        2. If the user answered previous questions, only ask a follow-up if there is a critical technical ambiguity.
+        3. Keep it turn-by-turn. ONLY ask at most 1 question.
 
-        Response format:
-        - If we lack critical information: set needsClarification = true and write exactly 1 precise, intelligent question.
-        - Otherwise: set needsClarification = false and leave questions empty.`
+        Respond with ONLY a raw JSON object (no markdown, no backticks):
+        {"needsClarification": true/false, "question": "your single question or empty string"}`
       });
 
-      return response.object;
+      // Parse JSON manually (Claude sometimes wraps in markdown)
+      let needsClarification = false;
+      let questionText = "";
+      try {
+        const cleaned = rawResponse.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        needsClarification = parsed.needsClarification === true;
+        questionText = parsed.question || "";
+      } catch {
+        needsClarification = true;
+        questionText = "Could you provide more details about the key features, target users, and technical constraints?";
+      }
+
+      return { needsClarification, questions: questionText ? [questionText] : [] };
     });
 
     const questions = analysis.questions.slice(0, 1);
@@ -98,7 +105,7 @@ export const generateFeaturePrd = inngest.createFunction(
 
     const prdContent = await step.run("generate-prd", async () => {
       const response = await generateText({
-        model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 3000 }),
+        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 2000 }),
         prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}

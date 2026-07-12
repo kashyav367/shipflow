@@ -4,6 +4,7 @@ import { requireAuth } from "@/features/auth/actions";
 import { prisma } from "@/lib/db";
 import { generateText } from "ai";
 import { openrouter } from "@/features/ai";
+import { sanitizeInput, validateChatMessage, validateChatResponse } from "@/features/ai/guardrails";
 
 export async function sendChatMessage(
   featureRequestId: string,
@@ -11,6 +12,11 @@ export async function sendChatMessage(
 ) {
   const session = await requireAuth();
   if (!session) throw new Error("Unauthorized");
+
+  // ── Guardrail: sanitize + validate user message ──
+  const cleanMessage = sanitizeInput(userMessage);
+  const msgCheck = validateChatMessage(cleanMessage);
+  if (!msgCheck.ok) throw new Error(msgCheck.reason);
 
   // Verify user has access to this feature
   const feature = await prisma.featureRequest.findUnique({
@@ -45,7 +51,7 @@ export async function sendChatMessage(
     data: {
       featureRequestId,
       role: "user",
-      content: userMessage,
+      content: cleanMessage,
     },
   });
 
@@ -64,7 +70,7 @@ export async function sendChatMessage(
 
   // Generate AI response
   const aiResult = await generateText({
-    model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 2000 }),
+    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 1500 }),
     prompt: `You are ShipFlow AI, a helpful Product Requirements assistant. You help users refine feature requests and create better PRDs.
 
 Feature Request:
@@ -84,6 +90,12 @@ Respond helpfully to the user's message. Be concise, actionable, and focus on im
 
   const aiResponse = aiResult.text;
 
+  // ── Guardrail: validate AI response before saving ──
+  const responseCheck = validateChatResponse(aiResponse);
+  if (!responseCheck.ok) {
+    throw new Error("AI response was invalid. Please try again.");
+  }
+
   // Save AI response
   const savedMessage = await prisma.chatMessage.create({
     data: {
@@ -94,7 +106,7 @@ Respond helpfully to the user's message. Be concise, actionable, and focus on im
   });
 
   return {
-    userMessage,
+    userMessage: cleanMessage,
     assistantMessage: aiResponse,
     savedMessageId: savedMessage.id,
   };

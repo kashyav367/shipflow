@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Robot, PaperPlaneTilt, User } from "@phosphor-icons/react";
-import { submitClarificationAnswerAction, getFeatureClarificationState } from "@/features/dashboard/actions/features";
+import { submitClarificationAnswerAction, getFeatureClarificationState, retryFeatureAnalysis } from "@/features/dashboard/actions/features";
 import { toast } from "sonner";
 
 interface Clarification {
@@ -34,6 +34,7 @@ export function ClarificationChat({
   const [input, setInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiTyping, setIsAiTyping] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom helper
@@ -49,6 +50,9 @@ export function ClarificationChat({
 
   // Find the first unanswered question
   const pendingQuestion = messages.find((c) => !c.answer);
+
+  // Feature is stuck: DRAFT status but no AI questions generated yet
+  const isStuck = (status === "draft") && messages.length === 0;
 
   // If the status is already prd_ready or prd_generating, we should stop typing
   useEffect(() => {
@@ -146,6 +150,25 @@ export function ClarificationChat({
     } finally {
       setIsSubmitting(false);
       // NOTE: intentionally NOT clearing isAiTyping here — poller manages it
+    }
+  };
+
+  // Retry AI analysis for stuck features
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    try {
+      const result = await retryFeatureAnalysis(featureId);
+      if (result?.status === "clarifying" && "question" in result && result.question) {
+        setMessages([{ ...result.question, createdAt: new Date(result.question.createdAt) }]);
+        setStatus("clarifying");
+      } else if (result?.status === "prd_ready") {
+        toast.success("PRD generated! Redirecting...");
+        router.push(`/dashboard/features/${featureId}/prd`);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Retry failed. Check your API key.");
+    } finally {
+      setIsRetrying(false);
     }
   };
 
@@ -247,7 +270,26 @@ export function ClarificationChat({
 
         {/* ChatGPT-style input bar */}
         <div className="p-5 border-t border-border/60 bg-card">
-          {pendingQuestion ? (
+          {isStuck ? (
+            // ── Stuck / AI failed state ──
+            <div className="flex flex-col items-center justify-center p-4 border border-dashed border-red-500/30 bg-red-500/5 rounded-2xl gap-3 text-center">
+              <div className="flex items-center gap-2 text-red-400 font-bold text-xs">
+                <span>⚠️ AI analysis did not start properly.</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                The AI failed to generate clarification questions (likely due to a model/API issue). Click below to retry.
+              </p>
+              <Button
+                onClick={handleRetry}
+                disabled={isRetrying}
+                size="sm"
+                className="mt-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {isRetrying ? "Retrying..." : "🔄 Retry AI Analysis"}
+              </Button>
+            </div>
+          ) : pendingQuestion ? (
+            // ── Active question input ──
             <form onSubmit={handleSend} className="relative flex items-center bg-muted/30 border border-border/80 focus-within:border-indigo-500/80 focus-within:ring-1 focus-within:ring-indigo-500/50 rounded-2xl px-4 py-3 transition shadow-inner">
               <textarea
                 value={input}
@@ -260,7 +302,6 @@ export function ClarificationChat({
                 disabled={isSubmitting}
                 className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none resize-none max-h-24 py-1 pr-12 min-h-[24px]"
               />
-
               <Button
                 type="submit"
                 disabled={!input.trim() || isSubmitting}
@@ -273,6 +314,7 @@ export function ClarificationChat({
               </Button>
             </form>
           ) : (
+            // ── All answered ──
             <div className="flex flex-col items-center justify-center p-4 border border-dashed border-emerald-500/30 bg-emerald-500/5 rounded-2xl gap-2 text-center animate-pulse">
               <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs">
                 <span>🎉 All clarification questions answered!</span>

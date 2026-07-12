@@ -4,10 +4,18 @@ import { requireAuth } from "@/features/auth/actions";
 import { prisma } from "@/lib/db";
 import { inngest } from "@/features/inngest/client";
 import { openrouter } from "@/features/ai";
-import { generateObject, generateText } from "ai";
+import { generateText } from "ai";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { logAuditEvent } from "@/features/monitoring/lib/audit";
+import {
+  sanitizeInput,
+  validateFeatureInput,
+  validateClarificationAnswer,
+  validateAiQuestion,
+  validatePrdOutput,
+  validateChatResponse,
+} from "@/features/ai/guardrails";
 
 async function getOrCreateUserWorkspace(userId: string) {
   // Find any workspace owned by or containing this user
@@ -58,7 +66,7 @@ async function processFeatureRequestFlow(featureRequestId: string) {
     });
 
     const prdContent = await generateText({
-      model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 3000 }),
+      model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 2000 }),
       prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}
@@ -102,19 +110,17 @@ IMPORTANT: Keep total length 300-500 words. Be specific, not generic.`,
     return { status: "prd_ready" as const };
   }
 
-  const response = await generateObject({
-    model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 1000 }),
-    schema: z.object({
-      needsClarification: z.boolean(),
-      questions: z.array(z.string()).describe("List of questions to clarify requirements, empty if none needed"),
-    }),
+  // Use generateText instead of generateObject because Claude returns markdown-wrapped JSON
+  // which breaks generateObject parsing. We extract JSON manually.
+  const rawResponse = await generateText({
+    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
     prompt: `You are an expert AI Product Manager. Analyze this feature request and determine if we have enough information to write a comprehensive, developer-ready PRD.
 
 Title: ${feature.title}
 Description: ${feature.description}
 
 Clarification Q&A History:
-${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || "No response yet"}`).join("\n\n")}
+${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || "No response yet"}`).join("\n\n") || "(none yet)"}
 
 Guidelines:
 1. If the request is still very brief, ask exactly 1 specific, high-impact question.
@@ -122,16 +128,38 @@ Guidelines:
 3. Keep it turn-by-turn. Only ask at most 1 question in this turn.
 4. Focus on data models, integrations, validation, and technical constraints.
 
-Return needsClarification=true with exactly 1 question if more detail is required; otherwise return needsClarification=false and no questions.`,
+Respond with ONLY a raw JSON object (no markdown, no backticks, no extra text):
+{"needsClarification": true/false, "question": "your single question here or empty string"}`,
   });
 
-  const questions = response.object.questions.slice(0, 1);
+  // Parse the JSON response
+  let needsClarification = false;
+  let questionText = "";
+  try {
+    // Strip any accidental markdown code fences
+    const cleaned = rawResponse.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+    needsClarification = parsed.needsClarification === true;
+    questionText = parsed.question || "";
+  } catch {
+    // If parsing fails, assume we need clarification and ask a default question
+    needsClarification = true;
+    questionText = "Could you provide more details about the key features, target users, and technical constraints for this feature?";
+  }
 
-  if (response.object.needsClarification && questions.length > 0) {
+  const questions = questionText ? [questionText] : [];
+
+  if (needsClarification && questions.length > 0) {
+    // ── Guardrail: validate AI-generated question ──
+    const questionCheck = validateAiQuestion(questions[0]);
+    const safeQuestion = questionCheck.ok
+      ? questions[0]
+      : "Could you provide more details about the key features, target users, and technical constraints for this feature?";
+
     const createdQuestion = await prisma.clarificationQuestion.create({
       data: {
         featureRequestId,
-        question: questions[0],
+        question: safeQuestion,
       },
     });
 
@@ -157,7 +185,7 @@ Return needsClarification=true with exactly 1 question if more detail is require
   });
 
   const prdContent = await generateText({
-    model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 3000 }),
+    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 2000 }),
     prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}
@@ -187,10 +215,17 @@ Write 5-10 concrete, testable acceptance criteria as a checklist.
 IMPORTANT: Keep total length 300-500 words. Be specific, not generic.`,
   });
 
+  // ── Guardrail: validate PRD output before saving ──
+  const prdCheck = validatePrdOutput(prdContent.text);
+  const contentToSave = prdCheck.valid ? prdContent.text : prdContent.text; // still save but log warnings
+  if (prdCheck.warnings.length > 0) {
+    console.warn("[Guardrail] PRD output warnings:", prdCheck.warnings);
+  }
+
   await prisma.prd.upsert({
     where: { featureRequestId },
-    update: { content: prdContent.text },
-    create: { featureRequestId, content: prdContent.text },
+    update: { content: contentToSave },
+    create: { featureRequestId, content: contentToSave },
   });
 
   await prisma.featureRequest.update({
@@ -205,11 +240,17 @@ export async function createFeatureRequest(formData: FormData) {
   const session = await requireAuth();
   const userId = session.user.id;
 
-  const title = formData.get("title") as string;
-  const description = formData.get("description") as string;
+  const title = sanitizeInput((formData.get("title") as string) || "");
+  const description = sanitizeInput((formData.get("description") as string) || "");
 
   if (!title || !description) {
     throw new Error("Title and description are required.");
+  }
+
+  // ── Guardrail: validate feature input ──
+  const inputCheck = validateFeatureInput(title, description);
+  if (!inputCheck.ok) {
+    throw new Error(inputCheck.reason);
   }
 
   const workspace = await getOrCreateUserWorkspace(userId);
@@ -390,6 +431,31 @@ export async function submitClarificationAnswerAction(
 ) {
   const session = await requireAuth();
   return await answerClarification(featureRequestId, questionId, answer, session.user.id);
+}
+
+export async function retryFeatureAnalysis(featureRequestId: string) {
+  const session = await requireAuth();
+
+  // Reset status back to draft so flow can re-run
+  await prisma.featureRequest.update({
+    where: { id: featureRequestId },
+    data: { status: "draft" },
+  });
+
+  await logAuditEvent({
+    userId: session.user.id,
+    action: "feature_retried",
+    details: `Retried AI analysis for feature request ${featureRequestId}`,
+    targetType: "feature_request",
+    targetId: featureRequestId,
+  });
+
+  try {
+    return await processFeatureRequestFlow(featureRequestId);
+  } catch (error) {
+    console.error("Retry flow failed:", error);
+    throw new Error("AI analysis failed. Please check your API key and try again.");
+  }
 }
 
 export async function getFeatureClarificationState(featureRequestId: string) {
