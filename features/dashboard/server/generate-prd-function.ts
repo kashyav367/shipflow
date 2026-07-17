@@ -105,7 +105,7 @@ export const generateFeaturePrd = inngest.createFunction(
 
     const prdContent = await step.run("generate-prd", async () => {
       const response = await generateText({
-        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 2000 }),
+        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 1500 }),
         prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}

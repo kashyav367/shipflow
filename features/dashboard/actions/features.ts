@@ -66,7 +66,7 @@ async function processFeatureRequestFlow(featureRequestId: string) {
     });
 
     const prdContent = await generateText({
-      model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 2000 }),
+      model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 1500 }),
       prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}
@@ -185,7 +185,7 @@ Respond with ONLY a raw JSON object (no markdown, no backticks, no extra text):
   });
 
   const prdContent = await generateText({
-    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 2000 }),
+    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 1500 }),
     prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
 
 Title: ${feature.title}
