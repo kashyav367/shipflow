@@ -4,7 +4,7 @@ import { requireAuth } from "@/features/auth/actions";
 import { prisma } from "@/lib/db";
 import { inngest } from "@/features/inngest/client";
 import { openrouter } from "@/features/ai";
-import { generateText } from "ai";
+import { generateText, generateObject } from "ai";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { logAuditEvent } from "@/features/monitoring/lib/audit";
@@ -332,6 +332,57 @@ export async function answerClarification(
   }
 }
 
+// Direct task generation fallback (used when Inngest is unavailable)
+async function generateTasksDirectly(featureRequestId: string) {
+  const prd = await prisma.prd.findUnique({ where: { featureRequestId } });
+  if (!prd) throw new Error("PRD not found.");
+
+  const response = await generateObject({
+    model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 1500 }),
+    schema: z.object({
+      tasks: z.array(z.object({
+        title: z.string().describe("Short action-oriented task title (5-10 words)"),
+        description: z.string().describe("Clear technical instructions for developers (2-3 sentences)"),
+      })).describe("Granular technical developer tasks required to implement the PRD"),
+    }),
+    prompt: `Analyze this PRD and break it down into 5-8 HIGHLY GRANULAR, action-oriented engineering tasks.
+
+Keep descriptions BRIEF (2-3 sentences max). Focus on implementation details.
+
+Categories to cover:
+1. Backend API routes & validation
+2. Frontend UI components
+3. Database / data models (if needed)
+4. State management & integrations
+5. Testing & edge cases
+
+PRD:
+${prd.content}`,
+  });
+
+  const tasksData = response.object.tasks;
+
+  await prisma.$transaction(
+    tasksData.map((t) =>
+      prisma.task.create({
+        data: {
+          featureRequestId,
+          title: t.title,
+          description: t.description,
+          status: "todo",
+        },
+      })
+    )
+  );
+
+  await prisma.featureRequest.update({
+    where: { id: featureRequestId },
+    data: { status: "development" },
+  });
+
+  return { success: true, count: tasksData.length };
+}
+
 export async function approvePrd(featureRequestId: string) {
   const session = await requireAuth();
 
@@ -348,14 +399,25 @@ export async function approvePrd(featureRequestId: string) {
     targetId: featureRequestId,
   });
 
+  // Try Inngest first, fall back to direct generation
+  let usedDirect = false;
   try {
     await inngest.send({
       name: "feature/planning.approved",
       data: { featureRequestId },
     });
   } catch (err) {
-    console.warn("Inngest Event Error: Failed to trigger feature/planning.approved. Dev server offline.", err);
+    console.warn("Inngest Event Error: Failed to trigger feature/planning.approved. Running task generation directly.", err);
+    try {
+      await generateTasksDirectly(featureRequestId);
+      usedDirect = true;
+    } catch (directErr) {
+      console.error("Direct task generation also failed:", directErr);
+    }
   }
+
+  // Redirect to kanban board so user sees live progress
+  redirect(`/dashboard/features/${featureRequestId}/tasks`);
 }
 
 export async function linkPullRequest(

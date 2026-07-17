@@ -40,34 +40,51 @@ export function KanbanBoard({
 
   // Auto-refresh when tasks are being generated
   useEffect(() => {
-    if (currentStatus !== "planning" && currentStatus !== "prd_generating") return;
+    const isPolling =
+      currentStatus === "planning" ||
+      currentStatus === "prd_generating";
 
+    if (!isPolling) return;
+
+    let stopped = false;
     const pollInterval = setInterval(async () => {
+      if (stopped) return;
       try {
         const response = await fetch(`/api/features/${featureId}`, { cache: "no-store" });
+        if (!response.ok) return;
         const data = await response.json();
-        
+
         if (data.status !== currentStatus) {
           setCurrentStatus(data.status);
-          toast.success("Status updated!");
+          if (data.status !== "planning" && data.status !== "prd_generating") {
+            toast.success("Status updated!");
+          }
         }
 
         if (data.tasks && data.tasks.length > tasks.length) {
           setTasks(data.tasks);
-          toast.success(`${data.tasks.length} tasks created!`);
+          stopped = true;
+          clearInterval(pollInterval);
+          toast.success(`${data.tasks.length} tasks created! Kanban board is ready.`);
+          router.refresh();
         }
 
         if (data.status === "development" || data.status === "ready_to_ship") {
-          router.refresh();
+          stopped = true;
           clearInterval(pollInterval);
+          router.refresh();
         }
       } catch (error) {
         console.error("Polling error:", error);
       }
-    }, 3000); // Poll every 3 seconds
+    }, 2500); // Poll every 2.5 seconds
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      stopped = true;
+      clearInterval(pollInterval);
+    };
   }, [currentStatus, featureId, tasks.length, router]);
+
 
   const handleStatusChange = async (taskId: string, newStatus: "todo" | "in_progress" | "review" | "done") => {
     setUpdatingTaskId(taskId);
@@ -212,30 +229,38 @@ export function KanbanBoard({
       ) : (
         /* Empty / Not Ready Pipeline States */
         <div className="max-w-2xl mx-auto py-12 px-6 border border-border/80 bg-card/40 backdrop-blur-sm rounded-2xl shadow-lg flex flex-col items-center text-center space-y-6">
-          <div className="size-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner border border-primary/20 animate-pulse">
-            <Kanban size={32} />
+          <div className={`size-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner border border-primary/20 ${currentStatus === "planning" ? "" : "animate-pulse"}`}>
+            {currentStatus === "planning" ? (
+              <div className="size-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            ) : (
+              <Kanban size={32} />
+            )}
           </div>
 
           <div className="space-y-2">
             <h3 className="text-base font-bold text-foreground">
-              {featureStatus === "draft" || featureStatus === "clarifying" 
+              {currentStatus === "draft" || currentStatus === "clarifying"
                 ? "AI Requirements Clarification Pending"
-                : featureStatus === "prd_generating" || featureStatus === "prd_ready"
+                : currentStatus === "prd_generating" || currentStatus === "prd_ready"
                 ? "PRD Approval Pending"
+                : currentStatus === "planning"
+                ? "AI Generating Tasks..."
                 : "Tasks Generating..."}
             </h3>
             <p className="text-xs text-muted-foreground max-w-md leading-relaxed">
-              {featureStatus === "draft" || featureStatus === "clarifying"
+              {currentStatus === "draft" || currentStatus === "clarifying"
                 ? "The AI Analyst is clarifying details about this feature to draft the specifications. Complete the chat to proceed."
-                : featureStatus === "prd_generating" || featureStatus === "prd_ready"
+                : currentStatus === "prd_generating" || currentStatus === "prd_ready"
                 ? "The AI has prepared the technical PRD document. Please review and approve it to generate the development tasks list."
-                : "AI is currently breaking down the approved PRD specifications into granular coding tasks. Please wait a few moments."}
+                : currentStatus === "planning"
+                ? "AI is breaking down the approved PRD into granular coding tasks. This usually takes 15–30 seconds. The board will populate automatically."
+                : "AI is currently creating tasks. Please wait a few moments."}
             </p>
           </div>
 
           <div className="pt-2">
-            {featureStatus === "draft" || featureStatus === "clarifying" ? (
-              <Button 
+            {currentStatus === "draft" || currentStatus === "clarifying" ? (
+              <Button
                 onClick={() => router.push(`/dashboard/features/${featureId}/clarify`)}
                 className="gap-2 shadow-lg shadow-primary/25"
               >
@@ -243,8 +268,8 @@ export function KanbanBoard({
                 <span>Open Clarification Chat</span>
                 <ArrowRight size={14} />
               </Button>
-            ) : featureStatus === "prd_generating" || featureStatus === "prd_ready" ? (
-              <Button 
+            ) : currentStatus === "prd_generating" || currentStatus === "prd_ready" ? (
+              <Button
                 onClick={() => router.push(`/dashboard/features/${featureId}/prd`)}
                 className="gap-2 shadow-lg shadow-primary/25"
               >
@@ -255,11 +280,12 @@ export function KanbanBoard({
             ) : (
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/40 border border-border px-4 py-2 rounded-lg">
                 <span className="size-2 rounded-full bg-primary animate-ping" />
-                <span>AI Agent is creating tasks... Refreshing page soon.</span>
+                <span>AI Agent is creating tasks... Board will update automatically.</span>
               </div>
             )}
           </div>
         </div>
+
       )}
     </div>
   );
