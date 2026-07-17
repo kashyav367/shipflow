@@ -66,34 +66,25 @@ async function processFeatureRequestFlow(featureRequestId: string) {
     });
 
     const prdContent = await generateText({
-      model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 1500 }),
-      prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
+      model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
+      prompt: `Write a SHORT Product Requirements Document for this feature. Be brief and direct.
 
 Title: ${feature.title}
 Description: ${feature.description}
+Clarifications: ${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question} A: ${c.answer || "N/A"}`).join(" | ")}
 
-User Clarifications:
-${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || ""}`).join("\n")}
+Respond in Markdown with ONLY these 3 sections (max 150 words total):
 
-Write the PRD using ONLY these 5 sections. Keep it focused and practical — no filler, no boilerplate:
+## Summary
+1-2 sentences: what we're building and why.
 
-## 1. Summary
-2-3 sentences: What are we building and why? Who is the target user?
+## Key Requirements
+4-6 bullet points of what it must do.
 
-## 2. Goals & Non-Goals
-- **Goals**: 3-5 bullet points of what this feature must achieve.
-- **Non-Goals**: 2-3 things explicitly out of scope for this version.
+## Acceptance Criteria
+4-6 checkboxes of done conditions.
 
-## 3. User Stories
-Write 3-6 user stories in "As a [user], I want [action] so that [benefit]" format.
-
-## 4. Technical Approach
-High-level architecture guidance in 4-8 bullet points. Mention key components, data flow, and integration points. Do NOT write code or schemas.
-
-## 5. Acceptance Criteria
-Write 5-10 concrete, testable acceptance criteria as a checklist.
-
-IMPORTANT: Keep total length 300-500 words. Be specific, not generic.`,
+Do NOT add extra sections, stories, or technical details.`,
     });
 
     await prisma.prd.upsert({
@@ -185,34 +176,25 @@ Respond with ONLY a raw JSON object (no markdown, no backticks, no extra text):
   });
 
   const prdContent = await generateText({
-    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 1500 }),
-    prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
+    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
+    prompt: `Write a SHORT Product Requirements Document for this feature. Be brief and direct.
 
 Title: ${feature.title}
 Description: ${feature.description}
+Clarifications: ${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question} A: ${c.answer || "N/A"}`).join(" | ")}
 
-User Clarifications:
-${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || ""}`).join("\n")}
+Respond in Markdown with ONLY these 3 sections (max 150 words total):
 
-Write the PRD using ONLY these 5 sections. Keep it focused and practical — no filler, no boilerplate:
+## Summary
+1-2 sentences: what we're building and why.
 
-## 1. Summary
-2-3 sentences: What are we building and why? Who is the target user?
+## Key Requirements
+4-6 bullet points of what it must do.
 
-## 2. Goals & Non-Goals
-- **Goals**: 3-5 bullet points of what this feature must achieve.
-- **Non-Goals**: 2-3 things explicitly out of scope for this version.
+## Acceptance Criteria
+4-6 checkboxes of done conditions.
 
-## 3. User Stories
-Write 3-6 user stories in "As a [user], I want [action] so that [benefit]" format.
-
-## 4. Technical Approach
-High-level architecture guidance in 4-8 bullet points. Mention key components, data flow, and integration points. Do NOT write code or schemas.
-
-## 5. Acceptance Criteria
-Write 5-10 concrete, testable acceptance criteria as a checklist.
-
-IMPORTANT: Keep total length 300-500 words. Be specific, not generic.`,
+Do NOT add extra sections, stories, or technical details.`,
   });
 
   // ── Guardrail: validate PRD output before saving ──
@@ -338,26 +320,19 @@ async function generateTasksDirectly(featureRequestId: string) {
   if (!prd) throw new Error("PRD not found.");
 
   const response = await generateObject({
-    model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 1500 }),
+    model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 800 }),
     schema: z.object({
       tasks: z.array(z.object({
-        title: z.string().describe("Short action-oriented task title (5-10 words)"),
-        description: z.string().describe("Clear technical instructions for developers (2-3 sentences)"),
-      })).describe("Granular technical developer tasks required to implement the PRD"),
+        title: z.string().describe("Short task title (5-8 words)"),
+        description: z.string().describe("1-2 sentence implementation note"),
+      })).describe("3-5 developer tasks to implement this feature"),
     }),
-    prompt: `Analyze this PRD and break it down into 5-8 HIGHLY GRANULAR, action-oriented engineering tasks.
-
-Keep descriptions BRIEF (2-3 sentences max). Focus on implementation details.
-
-Categories to cover:
-1. Backend API routes & validation
-2. Frontend UI components
-3. Database / data models (if needed)
-4. State management & integrations
-5. Testing & edge cases
+    prompt: `Break this PRD into 3-5 developer tasks. Be concise.
 
 PRD:
-${prd.content}`,
+${prd.content}
+
+Return exactly 3-5 tasks. Each task: short title + 1-2 sentence description. Cover: backend, frontend, and testing.`,
   });
 
   const tasksData = response.object.tasks;

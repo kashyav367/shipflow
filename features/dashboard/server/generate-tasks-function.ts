@@ -29,26 +29,19 @@ export const generateTasksFromPrd = inngest.createFunction(
     // 2. Call AI to generate structured task objects
     const tasksData = await step.run("generate-tasks-with-ai", async () => {
       const response = await generateObject({
-        model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 1500 }),
+        model: openrouter("anthropic/claude-3-5-sonnet-20241022", { maxTokens: 800 }),
         schema: z.object({
           tasks: z.array(z.object({
-            title: z.string().describe("Short action-oriented task title (5-10 words)"),
-            description: z.string().describe("Clear technical instructions for developers (2-3 sentences)"),
-          })).describe("Granular technical developer tasks required to implement the PRD"),
+            title: z.string().describe("Short task title (5-8 words)"),
+            description: z.string().describe("1-2 sentence implementation note"),
+          })).describe("3-5 developer tasks to implement this feature"),
         }),
-        prompt: `Analyze this PRD and break it down into 5-8 HIGHLY GRANULAR, action-oriented engineering tasks.
-        
-Keep descriptions BRIEF (2-3 sentences max). Focus on implementation details.
-
-Categories to cover:
-1. Backend API routes & validation
-2. Frontend UI components
-3. Database / data models (if needed)
-4. State management & integrations
-5. Testing & edge cases
+        prompt: `Break this PRD into 3-5 developer tasks. Be concise.
 
 PRD:
-${prd.content}`,
+${prd.content}
+
+Return exactly 3-5 tasks. Each task: short title + 1-2 sentence description. Cover: backend, frontend, and testing.`,
       });
 
       return response.object.tasks;

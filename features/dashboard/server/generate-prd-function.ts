@@ -105,38 +105,25 @@ export const generateFeaturePrd = inngest.createFunction(
 
     const prdContent = await step.run("generate-prd", async () => {
       const response = await generateText({
-        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 1500 }),
-        prompt: `You are a senior Product Manager. Write a concise, actionable Product Requirements Document (PRD) in Markdown for this feature:
+        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
+        prompt: `Write a SHORT Product Requirements Document for this feature. Be brief and direct.
 
 Title: ${feature.title}
 Description: ${feature.description}
+Clarifications: ${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question} A: ${c.answer || "N/A"}`).join(" | ")}
 
-User Clarifications:
-${feature.clarifications.map((c, i) => `Q${i + 1}: ${c.question}\nA${i + 1}: ${c.answer || ""}`).join("\n")}
+Respond in Markdown with ONLY these 3 sections (max 150 words total):
 
-Write the PRD using ONLY these 5 sections. Keep it focused and practical — no filler, no boilerplate:
+## Summary
+1-2 sentences: what we're building and why.
 
-## 1. Summary
-2-3 sentences: What are we building and why? Who is the target user?
+## Key Requirements
+4-6 bullet points of what it must do.
 
-## 2. Goals & Non-Goals
-- **Goals**: 3-5 bullet points of what this feature must achieve.
-- **Non-Goals**: 2-3 things explicitly out of scope for this version.
+## Acceptance Criteria
+4-6 checkboxes of done conditions.
 
-## 3. User Stories
-Write 3-6 user stories in "As a [user], I want [action] so that [benefit]" format. Cover the core happy path and 1-2 edge cases.
-
-## 4. Technical Approach
-High-level architecture guidance in 4-8 bullet points. Mention key components, data flow, and integration points. Do NOT write code, schemas, or API specs — keep it directional.
-
-## 5. Acceptance Criteria
-Write 5-10 concrete, testable acceptance criteria as a checklist. Each item should be verifiable by a QA engineer.
-
-IMPORTANT RULES:
-- Total length should be 300-500 words. Do NOT exceed this.
-- Use clear, simple language. Avoid jargon.
-- Be specific to this feature, not generic.
-- Use Markdown formatting (headers, bullet points, checkboxes).`,
+Do NOT add extra sections, stories, or technical details.`,
       });
 
       return response.text;
