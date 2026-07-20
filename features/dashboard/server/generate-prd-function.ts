@@ -40,7 +40,7 @@ export const generateFeaturePrd = inngest.createFunction(
       }
 
       const rawResponse = await generateText({
-        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
+        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 600 }),
         prompt: `You are an expert AI Product Manager. Analyze this feature request and determine if we have enough information to write a clear, actionable Product Requirements Document (PRD).
 
         Title: ${feature.title}
@@ -105,7 +105,7 @@ export const generateFeaturePrd = inngest.createFunction(
 
     const prdContent = await step.run("generate-prd", async () => {
       const response = await generateText({
-        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
+        model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 600 }),
         prompt: `Write a SHORT Product Requirements Document for this feature. Be brief and direct.
 
 Title: ${feature.title}

@@ -66,7 +66,7 @@ async function processFeatureRequestFlow(featureRequestId: string) {
     });
 
     const prdContent = await generateText({
-      model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
+      model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 600 }),
       prompt: `Write a SHORT Product Requirements Document for this feature. Be brief and direct.
 
 Title: ${feature.title}
@@ -104,7 +104,7 @@ Do NOT add extra sections, stories, or technical details.`,
   // Use generateText instead of generateObject because Claude returns markdown-wrapped JSON
   // which breaks generateObject parsing. We extract JSON manually.
   const rawResponse = await generateText({
-    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
+    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 600 }),
     prompt: `You are an expert AI Product Manager. Analyze this feature request and determine if we have enough information to write a comprehensive, developer-ready PRD.
 
 Title: ${feature.title}
@@ -176,7 +176,7 @@ Respond with ONLY a raw JSON object (no markdown, no backticks, no extra text):
   });
 
   const prdContent = await generateText({
-    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 800 }),
+    model: openrouter("anthropic/claude-sonnet-4", { maxTokens: 600 }),
     prompt: `Write a SHORT Product Requirements Document for this feature. Be brief and direct.
 
 Title: ${feature.title}
@@ -320,7 +320,7 @@ async function generateTasksDirectly(featureRequestId: string) {
   if (!prd) throw new Error("PRD not found.");
 
   const response = await generateObject({
-    model: openrouter("openai/gpt-4o-mini", { maxTokens: 800 }),
+    model: openrouter("openai/gpt-4o-mini", { maxTokens: 600 }),
     schema: z.object({
       tasks: z.array(z.object({
         title: z.string().describe("Short task title (5-8 words)"),
